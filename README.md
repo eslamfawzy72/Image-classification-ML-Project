@@ -7,7 +7,7 @@ pip package manager
 
 Clone the repository
 
-bashgit clone https://github.com/eslamfawzy72/Image-classification-ML-project.git
+git clone https://github.com/eslamfawzy72/Image-classification-ML-project.git
 
 # Create virtual environment
 
@@ -19,7 +19,6 @@ venv\Scripts\activate
 # On macOS/Linux
 source venv/bin/activate
 
-# Install dependencies
-
+Install dependencies
 - install -r requirements.txt
 
