@@ -304,3 +304,25 @@ def custom_macro_f1_score(y_true, y_pred, n_classes=10):
         macro_f1 += f1
         
     return macro_f1 / n_classes
+
+
+def k_fold_indices(X, k=3):
+    n_samples = len(X)
+    indices = np.arange(n_samples)
+    
+    np.random.seed(42)
+    np.random.shuffle(indices)
+    
+    fold_sizes = np.full(k, n_samples // k, dtype=int)
+    fold_sizes[:n_samples % k] += 1 
+    
+    current = 0
+    folds = []
+    for fold_size in fold_sizes:
+        start, stop = current, current + fold_size
+        val_idx = indices[start:stop]
+        train_idx = np.concatenate([indices[:start], indices[stop:]])
+        folds.append((train_idx, val_idx))
+        current = stop
+        
+    return folds
