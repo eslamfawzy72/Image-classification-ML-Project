@@ -219,7 +219,6 @@ def preprocess(feature_method="flatten", n_pca=50,balance=True):
     return X_train_final, y_train, X_val_final, y_val, X_test_final, y_test, weights
 
 
-import numpy as np
 
 def custom_confusion_matrix(y_true, y_pred, n_classes=None):
     
