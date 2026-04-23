@@ -280,3 +280,9 @@ def custom_classification_report(y_true, y_pred, target_names=None):
     report += f"{'macro avg':<15} {macro_precision:>10.2f} {macro_recall:>10.2f} {macro_f1:>10.2f} {total_support:>10}\n"
     
     return report
+
+
+def custom_accuracy_score(y_true, y_pred):
+    correct = np.sum(np.array(y_true) == np.array(y_pred))
+    total = len(y_true)
+    return correct / total if total > 0 else 0.0
