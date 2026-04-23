@@ -217,3 +217,67 @@ def preprocess(feature_method="flatten", n_pca=50,balance=True):
         raise ValueError("Invalid feature_method. Choose 'flatten', 'pca', or 'hog'.")
 
     return X_train_final, y_train, X_val_final, y_val, X_test_final, y_test, weights
+
+
+import numpy as np
+
+def custom_confusion_matrix(y_true, y_pred, n_classes=None):
+    
+    if n_classes is None:
+        n_classes = len(np.unique(y_true))
+        
+    matrix = np.zeros((n_classes, n_classes), dtype=int)
+    
+    for true_label, pred_label in zip(y_true, y_pred):
+        t = int(true_label)
+        p = int(pred_label)
+        matrix[t, p] += 1
+        
+    return matrix
+
+def custom_classification_report(y_true, y_pred, target_names=None):
+    
+    n_classes = len(np.unique(y_true))
+    cm = custom_confusion_matrix(y_true, y_pred, n_classes)
+    
+    if target_names is None:
+        target_names = [f"Class {i}" for i in range(n_classes)]
+        
+    report = f"{'':<15} {'precision':>10} {'recall':>10} {'f1-score':>10} {'support':>10}\n\n"
+    
+    macro_precision = 0
+    macro_recall = 0
+    macro_f1 = 0
+    total_support = 0
+    
+    for i in range(n_classes):
+        tp = cm[i, i]
+        fp = np.sum(cm[:, i]) - tp
+        fn = np.sum(cm[i, :]) - tp
+        support = np.sum(cm[i, :])
+        
+        precision = tp / (tp + fp + 1e-9)
+        recall = tp / (tp + fn + 1e-9)
+        f1 = 2 * (precision * recall) / (precision + recall + 1e-9)
+        
+        report += f"{target_names[i]:<15} {precision:>10.2f} {recall:>10.2f} {f1:>10.2f} {support:>10}\n"
+        
+        macro_precision += precision
+        macro_recall += recall
+        macro_f1 += f1
+        total_support += support
+
+    total_tp = np.trace(cm) 
+    total_samples = np.sum(cm)
+    accuracy = total_tp / total_samples
+
+    # Calculate final averages
+    macro_precision /= n_classes
+    macro_recall /= n_classes
+    macro_f1 /= n_classes
+
+    # Append bottom summary to report
+    report += f"\n{'accuracy':<15} {'':>10} {'':>10} {accuracy:>10.2f} {total_support:>10}\n"
+    report += f"{'macro avg':<15} {macro_precision:>10.2f} {macro_recall:>10.2f} {macro_f1:>10.2f} {total_support:>10}\n"
+    
+    return report
