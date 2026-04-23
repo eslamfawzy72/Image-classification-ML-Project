@@ -270,12 +270,10 @@ def custom_classification_report(y_true, y_pred, target_names=None):
     total_samples = np.sum(cm)
     accuracy = total_tp / total_samples
 
-    # Calculate final averages
     macro_precision /= n_classes
     macro_recall /= n_classes
     macro_f1 /= n_classes
 
-    # Append bottom summary to report
     report += f"\n{'accuracy':<15} {'':>10} {'':>10} {accuracy:>10.2f} {total_support:>10}\n"
     report += f"{'macro avg':<15} {macro_precision:>10.2f} {macro_recall:>10.2f} {macro_f1:>10.2f} {total_support:>10}\n"
     
@@ -283,9 +281,9 @@ def custom_classification_report(y_true, y_pred, target_names=None):
 
 
 def custom_accuracy_score(y_true, y_pred):
-
-    return np.sum(y_true == y_pred) / len(y_true)
-
+    correct = np.sum(np.array(y_true) == np.array(y_pred))
+    total = len(y_true)
+    return correct / total if total > 0 else 0.0
 
 def custom_macro_f1_score(y_true, y_pred, n_classes=10):
     
@@ -306,25 +304,3 @@ def custom_macro_f1_score(y_true, y_pred, n_classes=10):
         macro_f1 += f1
         
     return macro_f1 / n_classes
-
-def k_fold_indices(X, k=3):
-
-    n_samples = len(X)
-    indices = np.arange(n_samples)
-    
-    np.random.seed(42)
-    np.random.shuffle(indices)
-    
-    fold_sizes = np.full(k, n_samples // k, dtype=int)
-    fold_sizes[:n_samples % k] += 1 
-    
-    current = 0
-    folds = []
-    for fold_size in fold_sizes:
-        start, stop = current, current + fold_size
-        val_idx = indices[start:stop]
-        train_idx = np.concatenate([indices[:start], indices[stop:]])
-        folds.append((train_idx, val_idx))
-        current = stop
-        
-    return folds

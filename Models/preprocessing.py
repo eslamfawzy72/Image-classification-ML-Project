@@ -131,7 +131,7 @@ class CustomHOG:
         return np.array(features)
 
 
-def preprocess(feature_method="flatten", n_pca=50,balance=True):
+def preprocess(feature_method="flatten", n_pca=50, balance=True):
     print("Loading MNIST dataset...")
     # Load the raw dataset
     (X_train_full, y_train_full_raw), (X_test, y_test_raw) = keras.datasets.mnist.load_data(path="mnist.npz")
@@ -280,3 +280,8 @@ def custom_classification_report(y_true, y_pred, target_names=None):
     report += f"{'macro avg':<15} {macro_precision:>10.2f} {macro_recall:>10.2f} {macro_f1:>10.2f} {total_support:>10}\n"
     
     return report
+
+def custom_accuracy_score(y_true, y_pred):
+    correct = np.sum(np.array(y_true) == np.array(y_pred))
+    total = len(y_true)
+    return correct / total if total > 0 else 0.0
