@@ -134,6 +134,9 @@ class CustomHOG:
 
 
 def preprocess(feature_method="flatten", n_pca=50):
+    if(feature_method == "cnn"):
+        X_train, y_train, X_val, y_val, X_test, y_test = cnn()
+        return X_train, y_train, X_val, y_val, X_test, y_test, 1
     print("Loading MNIST dataset...")
     # Load the raw dataset
     (X_train_full, y_train_full), (X_test, y_test) = keras.datasets.mnist.load_data(path="mnist.npz")
