@@ -181,7 +181,7 @@ def preprocess(feature_method="flatten", n_pca=50):
         X_train_final = hog.transform(X_train)
         X_val_final = hog.transform(X_val)
         X_test_final = hog.transform(X_test)
-        
+
     else:
         raise ValueError("Invalid feature_method. Choose 'flatten', 'pca', or 'hog'.")
 
