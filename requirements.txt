@@ -2,3 +2,5 @@ numpy
 keras
 tensorflow
 matplotlib
+customtkinter
+pillow
