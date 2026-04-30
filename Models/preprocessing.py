@@ -231,6 +231,28 @@ def preprocess(feature_method="flatten", n_pca=50, balance=True):
 
 
 
+def k_fold_indices(X, k=3):
+    n_samples = len(X)
+    indices = np.arange(n_samples)
+
+    np.random.seed(42)
+    np.random.shuffle(indices)
+
+    fold_sizes = np.full(k, n_samples // k, dtype=int)
+    fold_sizes[:n_samples % k] += 1
+
+    current = 0
+    folds = []
+    for fold_size in fold_sizes:
+        start, stop = current, current + fold_size
+        val_idx = indices[start:stop]
+        train_idx = np.concatenate([indices[:start], indices[stop:]])
+        folds.append((train_idx, val_idx))
+        current = stop
+
+    return folds
+
+
 def custom_confusion_matrix(y_true, y_pred, n_classes=None):
     
     if n_classes is None:
