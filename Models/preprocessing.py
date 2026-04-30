@@ -212,9 +212,20 @@ def preprocess(feature_method="flatten", n_pca=50, balance=True):
         X_train_final = hog.transform(X_train)
         X_val_final = hog.transform(X_val)
         X_test_final = hog.transform(X_test)
-        
+
+    elif feature_method == "hog_pca":
+        hog = CustomHOG()
+        X_train_hog = hog.transform(X_train)
+        X_val_hog = hog.transform(X_val)
+        X_test_hog = hog.transform(X_test)
+
+        pca = CustomPCA(n_components=n_pca)
+        X_train_final = pca.fit_transform(X_train_hog)
+        X_val_final = pca.transform(X_val_hog)
+        X_test_final = pca.transform(X_test_hog)
+
     else:
-        raise ValueError("Invalid feature_method. Choose 'flatten', 'pca', or 'hog'.")
+        raise ValueError("Invalid feature_method. Choose 'flatten', 'pca', 'hog', or 'hog_pca'.")
 
     return X_train_final, y_train, X_val_final, y_val, X_test_final, y_test, weights
 
