@@ -131,7 +131,7 @@ class CustomHOG:
         return np.array(features)
 
 
-def preprocess(feature_method="flatten", n_pca=50, balance=True):
+def preprocess(feature_method="flatten", n_pca=50, balance=True,augment=False):
     print("Loading MNIST dataset...")
     # Load the raw dataset
     (X_train_full, y_train_full_raw), (X_test, y_test_raw) = keras.datasets.mnist.load_data(path="mnist.npz")
@@ -140,10 +140,12 @@ def preprocess(feature_method="flatten", n_pca=50, balance=True):
     X_train_full = X_train_full.astype('float32') / 255.0
     X_test = X_test.astype('float32') / 255.0
 
-    if balance==True:
+    y_train_full_binary = np.where(y_train_full_raw == 0, 0, 1)
+    y_test = np.where(y_test_raw == 0, 0, 1)
+
+    if balance == True and augment == False:
         zero_indices = np.where(y_train_full_raw == 0)[0]
         n_zeros = len(zero_indices) 
-        
         samples_per_class = n_zeros // 9  
         
         not_zero_indices = []
@@ -151,17 +153,12 @@ def preprocess(feature_method="flatten", n_pca=50, balance=True):
             digit_idx = np.where(y_train_full_raw == digit)[0]
             not_zero_indices.extend(digit_idx[:samples_per_class])
             
-        not_zero_indices = np.array(not_zero_indices)
-        
-        balanced_indices = np.concatenate([zero_indices, not_zero_indices])
-        
+        balanced_indices = np.concatenate([zero_indices, np.array(not_zero_indices)])
         np.random.seed(42)
         np.random.shuffle(balanced_indices)
         
         X_balanced = X_train_full[balanced_indices]
-        y_balanced_raw = y_train_full_raw[balanced_indices]
-        
-        y_balanced_binary = np.where(y_balanced_raw == 0, 0, 1)
+        y_balanced_binary = y_train_full_binary[balanced_indices]
         
         split_idx = int(len(X_balanced) * 0.9)
         X_train = X_balanced[:split_idx]
@@ -169,21 +166,16 @@ def preprocess(feature_method="flatten", n_pca=50, balance=True):
         X_val = X_balanced[split_idx:]
         y_val = y_balanced_binary[split_idx:]
 
-
-
     else:
-    
-        y_train_full_binary = np.where(y_train_full_raw == 0, 0, 1)
-                
-        # Train/Validation Split 10%
         split_idx = 54000 
         X_train = X_train_full[:split_idx]
         y_train = y_train_full_binary[:split_idx]
-        
         X_val = X_train_full[split_idx:]
         y_val = y_train_full_binary[split_idx:]
         
-    y_test = np.where(y_test_raw == 0, 0, 1)
+        if augment == True:
+            augmenter = CustomAugmenter(max_shift=2)
+            X_train, y_train = augmenter.oversample_minority(X_train, y_train, minority_class=0)
 
     print(f"Split completed: Train={len(X_train)}, Val={len(X_val)}, Test={len(X_test)}")
 
@@ -316,3 +308,53 @@ def custom_accuracy_score(y_true, y_pred):
     correct = np.sum(np.array(y_true) == np.array(y_pred))
     total = len(y_true)
     return correct / total if total > 0 else 0.0
+
+class CustomAugmenter:
+    def __init__(self, max_shift=2):
+        self.max_shift = max_shift
+
+    def random_shift(self, image):
+        """Shifts an image randomly by padding it and cropping a 28x28 window."""
+        # Pad the 28x28 image with zeros
+        padded = np.pad(image, pad_width=self.max_shift, mode='constant', constant_values=0)
+        
+        # Generate random shifts
+        dy = np.random.randint(-self.max_shift, self.max_shift + 1)
+        dx = np.random.randint(-self.max_shift, self.max_shift + 1)
+        
+        # Crop back down to 28x28 based on the shift
+        start_y, start_x = self.max_shift + dy, self.max_shift + dx
+        shifted_image = padded[start_y:start_y+28, start_x:start_x+28]
+        
+        return shifted_image
+
+    def oversample_minority(self, X, y, minority_class=0):
+        """Generates synthetic data to balance the classes using shifting."""
+        print("Augmenting data to balance classes...")
+        minority_idx = np.where(y == minority_class)[0]
+        majority_idx = np.where(y != minority_class)[0]
+        
+        n_minority = len(minority_idx)
+        n_majority = len(majority_idx)
+        n_to_add = n_majority - n_minority
+        
+        if n_to_add <= 0:
+            return X, y
+            
+        # Randomly pick minority samples to augment
+        augment_indices = np.random.choice(minority_idx, size=n_to_add, replace=True)
+        
+        augmented_images = np.zeros((n_to_add, 28, 28), dtype=np.float32)
+        
+        for i, idx in enumerate(augment_indices):
+            augmented_images[i] = self.random_shift(X[idx])
+            
+        # Combine original data with augmented data
+        X_balanced = np.concatenate([X, augmented_images], axis=0)
+        y_balanced = np.concatenate([y, np.full(n_to_add, minority_class)], axis=0)
+        
+        # Shuffle the newly balanced dataset
+        np.random.seed(42)
+        shuffle_idx = np.random.permutation(len(y_balanced))
+        
+        return X_balanced[shuffle_idx], y_balanced[shuffle_idx]
