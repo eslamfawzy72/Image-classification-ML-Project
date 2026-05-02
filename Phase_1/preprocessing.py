@@ -303,12 +303,10 @@ def custom_classification_report(y_true, y_pred, target_names=None):
     total_samples = np.sum(cm)
     accuracy = total_tp / total_samples
 
-    # Calculate final averages
     macro_precision /= n_classes
     macro_recall /= n_classes
     macro_f1 /= n_classes
 
-    # Append bottom summary to report
     report += f"\n{'accuracy':<15} {'':>10} {'':>10} {accuracy:>10.2f} {total_support:>10}\n"
     report += f"{'macro avg':<15} {macro_precision:>10.2f} {macro_recall:>10.2f} {macro_f1:>10.2f} {total_support:>10}\n"
     
