@@ -131,27 +131,60 @@ class CustomHOG:
         return np.array(features)
 
 
-def preprocess(feature_method="flatten", n_pca=50):
+def preprocess(feature_method="flatten", n_pca=50, balance=True):
     print("Loading MNIST dataset...")
     # Load the raw dataset
-    (X_train_full, y_train_full), (X_test, y_test) = keras.datasets.mnist.load_data(path="mnist.npz")
-
-    # Label Conversion (0 or Not 0)
-    y_train_full = np.where(y_train_full == 0, 0, 1)
-    y_test = np.where(y_test == 0, 0, 1)
+    (X_train_full, y_train_full_raw), (X_test, y_test_raw) = keras.datasets.mnist.load_data(path="mnist.npz")
 
     # Normalization 
     X_train_full = X_train_full.astype('float32') / 255.0
     X_test = X_test.astype('float32') / 255.0
+
+    if balance==True:
+        zero_indices = np.where(y_train_full_raw == 0)[0]
+        n_zeros = len(zero_indices) 
+        
+        samples_per_class = n_zeros // 9  
+        
+        not_zero_indices = []
+        for digit in range(1, 10):
+            digit_idx = np.where(y_train_full_raw == digit)[0]
+            not_zero_indices.extend(digit_idx[:samples_per_class])
+            
+        not_zero_indices = np.array(not_zero_indices)
+        
+        balanced_indices = np.concatenate([zero_indices, not_zero_indices])
+        
+        np.random.seed(42)
+        np.random.shuffle(balanced_indices)
+        
+        X_balanced = X_train_full[balanced_indices]
+        y_balanced_raw = y_train_full_raw[balanced_indices]
+        
+        y_balanced_binary = np.where(y_balanced_raw == 0, 0, 1)
+        
+        split_idx = int(len(X_balanced) * 0.9)
+        X_train = X_balanced[:split_idx]
+        y_train = y_balanced_binary[:split_idx]
+        X_val = X_balanced[split_idx:]
+        y_val = y_balanced_binary[split_idx:]
+
+
+
+    else:
     
-    # Train/Validation Split 10%
-    split_idx = 54000 
-    X_train = X_train_full[:split_idx]
-    y_train = y_train_full[:split_idx]
-    
-    X_val = X_train_full[split_idx:]
-    y_val = y_train_full[split_idx:]
-    
+        y_train_full_binary = np.where(y_train_full_raw == 0, 0, 1)
+                
+        # Train/Validation Split 10%
+        split_idx = 54000 
+        X_train = X_train_full[:split_idx]
+        y_train = y_train_full_binary[:split_idx]
+        
+        X_val = X_train_full[split_idx:]
+        y_val = y_train_full_binary[split_idx:]
+        
+    y_test = np.where(y_test_raw == 0, 0, 1)
+
     print(f"Split completed: Train={len(X_train)}, Val={len(X_val)}, Test={len(X_test)}")
 
     weights = get_class_weights(y_train)
@@ -179,8 +212,87 @@ def preprocess(feature_method="flatten", n_pca=50):
         X_train_final = hog.transform(X_train)
         X_val_final = hog.transform(X_val)
         X_test_final = hog.transform(X_test)
-        
+
+    elif feature_method == "hog_pca":
+        hog = CustomHOG()
+        X_train_hog = hog.transform(X_train)
+        X_val_hog = hog.transform(X_val)
+        X_test_hog = hog.transform(X_test)
+
+        pca = CustomPCA(n_components=n_pca)
+        X_train_final = pca.fit_transform(X_train_hog)
+        X_val_final = pca.transform(X_val_hog)
+        X_test_final = pca.transform(X_test_hog)
+
     else:
-        raise ValueError("Invalid feature_method. Choose 'flatten', 'pca', or 'hog'.")
+        raise ValueError("Invalid feature_method. Choose 'flatten', 'pca', 'hog', or 'hog_pca'.")
 
     return X_train_final, y_train, X_val_final, y_val, X_test_final, y_test, weights
+
+
+
+def custom_confusion_matrix(y_true, y_pred, n_classes=None):
+    
+    if n_classes is None:
+        n_classes = len(np.unique(y_true))
+        
+    matrix = np.zeros((n_classes, n_classes), dtype=int)
+    
+    for true_label, pred_label in zip(y_true, y_pred):
+        t = int(true_label)
+        p = int(pred_label)
+        matrix[t, p] += 1
+        
+    return matrix
+
+def custom_classification_report(y_true, y_pred, target_names=None):
+    
+    n_classes = len(np.unique(y_true))
+    cm = custom_confusion_matrix(y_true, y_pred, n_classes)
+    
+    if target_names is None:
+        target_names = [f"Class {i}" for i in range(n_classes)]
+        
+    report = f"{'':<15} {'precision':>10} {'recall':>10} {'f1-score':>10} {'support':>10}\n\n"
+    
+    macro_precision = 0
+    macro_recall = 0
+    macro_f1 = 0
+    total_support = 0
+    
+    for i in range(n_classes):
+        tp = cm[i, i]
+        fp = np.sum(cm[:, i]) - tp
+        fn = np.sum(cm[i, :]) - tp
+        support = np.sum(cm[i, :])
+        
+        precision = tp / (tp + fp + 1e-9)
+        recall = tp / (tp + fn + 1e-9)
+        f1 = 2 * (precision * recall) / (precision + recall + 1e-9)
+        
+        report += f"{target_names[i]:<15} {precision:>10.2f} {recall:>10.2f} {f1:>10.2f} {support:>10}\n"
+        
+        macro_precision += precision
+        macro_recall += recall
+        macro_f1 += f1
+        total_support += support
+
+    total_tp = np.trace(cm) 
+    total_samples = np.sum(cm)
+    accuracy = total_tp / total_samples
+
+    # Calculate final averages
+    macro_precision /= n_classes
+    macro_recall /= n_classes
+    macro_f1 /= n_classes
+
+    # Append bottom summary to report
+    report += f"\n{'accuracy':<15} {'':>10} {'':>10} {accuracy:>10.2f} {total_support:>10}\n"
+    report += f"{'macro avg':<15} {macro_precision:>10.2f} {macro_recall:>10.2f} {macro_f1:>10.2f} {total_support:>10}\n"
+    
+    return report
+
+def custom_accuracy_score(y_true, y_pred):
+    correct = np.sum(np.array(y_true) == np.array(y_pred))
+    total = len(y_true)
+    return correct / total if total > 0 else 0.0
