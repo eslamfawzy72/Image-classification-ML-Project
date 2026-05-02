@@ -1,7 +1,5 @@
 import keras
 import numpy as np
-from keras.applications import VGG16
-from keras.applications.vgg16 import preprocess_input
 
 
 class CustomPCA:
@@ -133,27 +131,60 @@ class CustomHOG:
         return np.array(features)
 
 
-def preprocess(feature_method="flatten", n_pca=50):
-    if(feature_method == "cnn"):
-        X_train, y_train, X_val, y_val, X_test, y_test = cnn()
-        return X_train, y_train, X_val, y_val, X_test, y_test, 1
+def preprocess(feature_method="flatten", n_pca=50, balance=True):
     print("Loading MNIST dataset...")
     # Load the raw dataset
-    (X_train_full, y_train_full), (X_test, y_test) = keras.datasets.mnist.load_data(path="mnist.npz")
-
+    (X_train_full, y_train_full_raw), (X_test, y_test_raw) = keras.datasets.mnist.load_data(path="mnist.npz")
 
     # Normalization 
     X_train_full = X_train_full.astype('float32') / 255.0
     X_test = X_test.astype('float32') / 255.0
+
+    if balance==True:
+        zero_indices = np.where(y_train_full_raw == 0)[0]
+        n_zeros = len(zero_indices) 
+        
+        samples_per_class = n_zeros // 9  
+        
+        not_zero_indices = []
+        for digit in range(1, 10):
+            digit_idx = np.where(y_train_full_raw == digit)[0]
+            not_zero_indices.extend(digit_idx[:samples_per_class])
+            
+        not_zero_indices = np.array(not_zero_indices)
+        
+        balanced_indices = np.concatenate([zero_indices, not_zero_indices])
+        
+        np.random.seed(42)
+        np.random.shuffle(balanced_indices)
+        
+        X_balanced = X_train_full[balanced_indices]
+        y_balanced_raw = y_train_full_raw[balanced_indices]
+        
+        y_balanced_binary = np.where(y_balanced_raw == 0, 0, 1)
+        
+        split_idx = int(len(X_balanced) * 0.9)
+        X_train = X_balanced[:split_idx]
+        y_train = y_balanced_binary[:split_idx]
+        X_val = X_balanced[split_idx:]
+        y_val = y_balanced_binary[split_idx:]
+
+
+
+    else:
     
-    # Train/Validation Split 10%
-    split_idx = 54000 
-    X_train = X_train_full[:split_idx]
-    y_train = y_train_full[:split_idx]
-    
-    X_val = X_train_full[split_idx:]
-    y_val = y_train_full[split_idx:]
-    
+        y_train_full_binary = np.where(y_train_full_raw == 0, 0, 1)
+                
+        # Train/Validation Split 10%
+        split_idx = 54000 
+        X_train = X_train_full[:split_idx]
+        y_train = y_train_full_binary[:split_idx]
+        
+        X_val = X_train_full[split_idx:]
+        y_val = y_train_full_binary[split_idx:]
+        
+    y_test = np.where(y_test_raw == 0, 0, 1)
+
     print(f"Split completed: Train={len(X_train)}, Val={len(X_val)}, Test={len(X_test)}")
 
     weights = get_class_weights(y_train)
@@ -197,40 +228,6 @@ def preprocess(feature_method="flatten", n_pca=50):
         raise ValueError("Invalid feature_method. Choose 'flatten', 'pca', 'hog', or 'hog_pca'.")
 
     return X_train_final, y_train, X_val_final, y_val, X_test_final, y_test, weights
-
-def cnn(subset_limit=5000):
-
-    (X_train_full, y_train_full), (X_test, y_test) = keras.datasets.mnist.load_data(path="mnist.npz")
-    
-    # Running 60,000 images through a Deep Learning CNN on a CPU will take hours.
-    X_train_full = X_train_full[:subset_limit]
-    y_train_full = y_train_full[:subset_limit]
-    split_idx=int(0.9 * subset_limit)
-
-    X_train = X_train_full[:split_idx]
-    y_train = y_train_full[:split_idx]
-    
-    X_val = X_train_full[split_idx:]
-    y_val = y_train_full[split_idx:]
-   
-    def format_for_vgg(X):
-        X_padded = np.pad(X, ((0,0), (2,2), (2,2)), mode='constant', constant_values=0)
-        X_rgb = np.stack((X_padded,) * 3, axis=-1)
-        return preprocess_input(X_rgb.astype('float32'))
-
-    X_train_prep = format_for_vgg(X_train)
-    X_val_prep = format_for_vgg(X_val)
-    X_test_prep = format_for_vgg(X_test)
-
-    cnn_extractor = VGG16(weights='imagenet', include_top=False, pooling='avg', input_shape=(32, 32, 3))
-    
-    print("Extracting CNN Features...")
-    X_train_cnn = cnn_extractor.predict(X_train_prep)
-    X_val_cnn = cnn_extractor.predict(X_val_prep)
-    X_test_cnn = cnn_extractor.predict(X_test_prep)
-    
-    return X_train_cnn, y_train, X_val_cnn, y_val, X_test_cnn, y_test
-
 
 
 
@@ -284,59 +281,18 @@ def custom_classification_report(y_true, y_pred, target_names=None):
     total_samples = np.sum(cm)
     accuracy = total_tp / total_samples
 
+    # Calculate final averages
     macro_precision /= n_classes
     macro_recall /= n_classes
     macro_f1 /= n_classes
 
+    # Append bottom summary to report
     report += f"\n{'accuracy':<15} {'':>10} {'':>10} {accuracy:>10.2f} {total_support:>10}\n"
     report += f"{'macro avg':<15} {macro_precision:>10.2f} {macro_recall:>10.2f} {macro_f1:>10.2f} {total_support:>10}\n"
     
     return report
 
-
 def custom_accuracy_score(y_true, y_pred):
     correct = np.sum(np.array(y_true) == np.array(y_pred))
     total = len(y_true)
     return correct / total if total > 0 else 0.0
-
-def custom_macro_f1_score(y_true, y_pred, n_classes=10):
-    
-    cm = np.zeros((n_classes, n_classes), dtype=int)
-    for t, p in zip(y_true, y_pred):
-        cm[int(t), int(p)] += 1
-        
-    macro_f1 = 0
-    for i in range(n_classes):
-        tp = cm[i, i]
-        fp = np.sum(cm[:, i]) - tp
-        fn = np.sum(cm[i, :]) - tp
-        
-        precision = tp / (tp + fp + 1e-9)
-        recall = tp / (tp + fn + 1e-9)
-        f1 = 2 * (precision * recall) / (precision + recall + 1e-9)
-        
-        macro_f1 += f1
-        
-    return macro_f1 / n_classes
-
-
-def k_fold_indices(X, k=3):
-    n_samples = len(X)
-    indices = np.arange(n_samples)
-    
-    np.random.seed(42)
-    np.random.shuffle(indices)
-    
-    fold_sizes = np.full(k, n_samples // k, dtype=int)
-    fold_sizes[:n_samples % k] += 1 
-    
-    current = 0
-    folds = []
-    for fold_size in fold_sizes:
-        start, stop = current, current + fold_size
-        val_idx = indices[start:stop]
-        train_idx = np.concatenate([indices[:start], indices[stop:]])
-        folds.append((train_idx, val_idx))
-        current = stop
-        
-    return folds

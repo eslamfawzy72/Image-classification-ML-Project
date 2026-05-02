@@ -212,12 +212,45 @@ def preprocess(feature_method="flatten", n_pca=50, balance=True):
         X_train_final = hog.transform(X_train)
         X_val_final = hog.transform(X_val)
         X_test_final = hog.transform(X_test)
-        
+
+    elif feature_method == "hog_pca":
+        hog = CustomHOG()
+        X_train_hog = hog.transform(X_train)
+        X_val_hog = hog.transform(X_val)
+        X_test_hog = hog.transform(X_test)
+
+        pca = CustomPCA(n_components=n_pca)
+        X_train_final = pca.fit_transform(X_train_hog)
+        X_val_final = pca.transform(X_val_hog)
+        X_test_final = pca.transform(X_test_hog)
+
     else:
-        raise ValueError("Invalid feature_method. Choose 'flatten', 'pca', or 'hog'.")
+        raise ValueError("Invalid feature_method. Choose 'flatten', 'pca', 'hog', or 'hog_pca'.")
 
     return X_train_final, y_train, X_val_final, y_val, X_test_final, y_test, weights
 
+
+
+def k_fold_indices(X, k=3):
+    n_samples = len(X)
+    indices = np.arange(n_samples)
+
+    np.random.seed(42)
+    np.random.shuffle(indices)
+
+    fold_sizes = np.full(k, n_samples // k, dtype=int)
+    fold_sizes[:n_samples % k] += 1
+
+    current = 0
+    folds = []
+    for fold_size in fold_sizes:
+        start, stop = current, current + fold_size
+        val_idx = indices[start:stop]
+        train_idx = np.concatenate([indices[:start], indices[stop:]])
+        folds.append((train_idx, val_idx))
+        current = stop
+
+    return folds
 
 
 def custom_confusion_matrix(y_true, y_pred, n_classes=None):
