@@ -133,7 +133,7 @@ class CustomHOG:
         return np.array(features)
 
 
-def preprocess(feature_method="flatten", n_pca=50):
+def preprocess(feature_method="flatten",cv=False, n_pca=50):
     if(feature_method == "cnn"):
         X_train, y_train, X_val, y_val, X_test, y_test = cnn()
         return X_train, y_train, X_val, y_val, X_test, y_test, 1
@@ -219,6 +219,9 @@ def preprocess(feature_method="flatten", n_pca=50):
 
     else:
         raise ValueError("Invalid feature_method. Choose 'flatten', 'pca', 'hog', or 'hog_pca'.")
+    
+    if cv: 
+        X_train, y_train = np.concatenate((X_train, X_val), axis=0), np.concatenate((y_train, y_val), axis=0)
 
     return X_train_final, y_train, X_val_final, y_val, X_test_final, y_test, weights
 
