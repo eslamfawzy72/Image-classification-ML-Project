@@ -141,7 +141,7 @@ def preprocess(feature_method="flatten",cv=False, n_pca=50):
     # Feature Extraction 
     if feature_method == "pca":
         try:
-            data = np.load('mnist_pca_features.npz')
+            data = np.load('mnist_pca50_features.npz')
             
             X_train_final = data['X_train_final']
             y_train = data['y_train']
@@ -221,7 +221,7 @@ def preprocess(feature_method="flatten",cv=False, n_pca=50):
         raise ValueError("Invalid feature_method. Choose 'flatten', 'pca', 'hog', or 'hog_pca'.")
     
     if cv: 
-        X_train, y_train = np.concatenate((X_train, X_val), axis=0), np.concatenate((y_train, y_val), axis=0)
+        X_train_final, y_train = np.concatenate((X_train_final, X_val_final), axis=0), np.concatenate((y_train, y_val), axis=0)
 
     return X_train_final, y_train, X_val_final, y_val, X_test_final, y_test, weights
 
