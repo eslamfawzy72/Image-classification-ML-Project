@@ -137,61 +137,85 @@ def preprocess(feature_method="flatten", n_pca=50):
     if(feature_method == "cnn"):
         X_train, y_train, X_val, y_val, X_test, y_test = cnn()
         return X_train, y_train, X_val, y_val, X_test, y_test, 1
-    print("Loading MNIST dataset...")
-    # Load the raw dataset
-    (X_train_full, y_train_full), (X_test, y_test) = keras.datasets.mnist.load_data(path="mnist.npz")
-
-
-    # Normalization 
-    X_train_full = X_train_full.astype('float32') / 255.0
-    X_test = X_test.astype('float32') / 255.0
     
-    # Train/Validation Split 10%
-    split_idx = 54000 
-    X_train = X_train_full[:split_idx]
-    y_train = y_train_full[:split_idx]
-    
-    X_val = X_train_full[split_idx:]
-    y_val = y_train_full[split_idx:]
-    
-    print(f"Split completed: Train={len(X_train)}, Val={len(X_val)}, Test={len(X_test)}")
-
-    weights = get_class_weights(y_train)
-
     # Feature Extraction 
     if feature_method == "pca":
-        X_train_flat = X_train.reshape(-1, 784)
-        X_val_flat = X_val.reshape(-1, 784)
-        X_test_flat = X_test.reshape(-1, 784)
-        
-        pca = CustomPCA(n_components=n_pca)
-        
-        X_train_final = pca.fit_transform(X_train_flat)
-        
-        X_val_final = pca.transform(X_val_flat)
-        X_test_final = pca.transform(X_test_flat)
-        
+        try:
+            data = np.load('mnist_pca_features.npz')
+            
+            X_train_final = data['X_train_final']
+            y_train = data['y_train']
+            X_val_final   = data['X_val_final']
+            y_val   = data['y_val']
+            X_test_final  = data['X_test_final']
+            y_test  = data['y_test']
+            
+            weights = get_class_weights(y_train)
+            
+
+            
+        except FileNotFoundError:
+            print("ERROR: 'mnist_pca_features.npz' not found in the current directory.")
+            return None
+
     elif feature_method == "flatten":
+        (X_train_full, y_train_full), (X_test, y_test) = keras.datasets.mnist.load_data(path="mnist.npz")
+        X_train_full = X_train_full.astype('float32') / 255.0
+        X_test = X_test.astype('float32') / 255.0
+        
+        split_idx = 54000 
+        X_train = X_train_full[:split_idx]
+        y_train = y_train_full[:split_idx]
+        
+        X_val = X_train_full[split_idx:]
+        y_val = y_train_full[split_idx:]
+        
+        print(f"Split completed: Train={len(X_train)}, Val={len(X_val)}, Test={len(X_test)}")
+
+        weights = get_class_weights(y_train)
+        
         X_train_final = X_train.reshape(-1, 784)
         X_val_final = X_val.reshape(-1, 784)
         X_test_final = X_test.reshape(-1, 784)
     
     elif feature_method == "hog":
-        hog = CustomHOG()
-        X_train_final = hog.transform(X_train)
-        X_val_final = hog.transform(X_val)
-        X_test_final = hog.transform(X_test)
+
+        try:
+            data = np.load('mnist_hog_features.npz')
+            
+            X_train_final = data['X_train_final']
+            y_train = data['y_train']
+            X_val_final   = data['X_val_final']
+            y_val   = data['y_val']
+            X_test_final  = data['X_test_final']
+            y_test  = data['y_test']
+            
+            weights = get_class_weights(y_train)
+            
+
+            
+        except FileNotFoundError:
+            print("ERROR: 'mnist_hog_features.npz' not found in the current directory.")
+            return None
 
     elif feature_method == "hog_pca":
-        hog = CustomHOG()
-        X_train_hog = hog.transform(X_train)
-        X_val_hog = hog.transform(X_val)
-        X_test_hog = hog.transform(X_test)
+        try:
+            data = np.load('mnist_hog_pca_features.npz')
+            
+            X_train_final = data['X_train_final']
+            y_train = data['y_train']
+            X_val_final   = data['X_val_final']
+            y_val   = data['y_val']
+            X_test_final  = data['X_test_final']
+            y_test  = data['y_test']
+            
+            weights = get_class_weights(y_train)
+            
 
-        pca = CustomPCA(n_components=n_pca)
-        X_train_final = pca.fit_transform(X_train_hog)
-        X_val_final = pca.transform(X_val_hog)
-        X_test_final = pca.transform(X_test_hog)
+            
+        except FileNotFoundError:
+            print("ERROR: 'mnist_hog_pca_features.npz' not found in the current directory.")
+            return None
 
     else:
         raise ValueError("Invalid feature_method. Choose 'flatten', 'pca', 'hog', or 'hog_pca'.")
@@ -200,36 +224,26 @@ def preprocess(feature_method="flatten", n_pca=50):
 
 def cnn(subset_limit=5000):
 
-    (X_train_full, y_train_full), (X_test, y_test) = keras.datasets.mnist.load_data(path="mnist.npz")
-    
-    # Running 60,000 images through a Deep Learning CNN on a CPU will take hours.
-    X_train_full = X_train_full[:subset_limit]
-    y_train_full = y_train_full[:subset_limit]
-    split_idx=int(0.9 * subset_limit)
+        try:
+            data = np.load('mnist_vgg16_features.npz')
+            
+            X_train_cnn = data['X_train_cnn']
+            y_train = data['y_train']
+            X_val_cnn   = data['X_val_cnn']
+            y_val   = data['y_val']
+            X_test_cnn  = data['X_test_cnn']
+            y_test  = data['y_test']
+            
+            weights = get_class_weights(y_train)
+            
+            print(f"CNN Features Loaded: Train={len(X_train_cnn)}, Val={len(X_val_cnn)}, Test={len(X_test_cnn)}")
+            return X_train_cnn, y_train, X_val_cnn, y_val, X_test_cnn, y_test
 
-    X_train = X_train_full[:split_idx]
-    y_train = y_train_full[:split_idx]
-    
-    X_val = X_train_full[split_idx:]
-    y_val = y_train_full[split_idx:]
-   
-    def format_for_vgg(X):
-        X_padded = np.pad(X, ((0,0), (2,2), (2,2)), mode='constant', constant_values=0)
-        X_rgb = np.stack((X_padded,) * 3, axis=-1)
-        return preprocess_input(X_rgb.astype('float32'))
-
-    X_train_prep = format_for_vgg(X_train)
-    X_val_prep = format_for_vgg(X_val)
-    X_test_prep = format_for_vgg(X_test)
-
-    cnn_extractor = VGG16(weights='imagenet', include_top=False, pooling='avg', input_shape=(32, 32, 3))
-    
-    print("Extracting CNN Features...")
-    X_train_cnn = cnn_extractor.predict(X_train_prep)
-    X_val_cnn = cnn_extractor.predict(X_val_prep)
-    X_test_cnn = cnn_extractor.predict(X_test_prep)
-    
-    return X_train_cnn, y_train, X_val_cnn, y_val, X_test_cnn, y_test
+            
+        except FileNotFoundError:
+            print("ERROR: 'mnist_vgg16_features.npz' not found in the current directory.")
+            return None
+          
 
 
 
