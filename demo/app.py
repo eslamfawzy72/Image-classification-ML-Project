@@ -43,6 +43,9 @@ from demo.trainer import train_or_load, predict_image
 
 PHASE_INTERNAL = {v: k for k, v in PHASE_LABELS.items()}
 
+PHASE_SHORT_LABELS = ["Phase 1", "Phase 2"]
+PHASE_SHORT_TO_KEY = {"Phase 1": "phase1", "Phase 2": "phase2"}
+
 
 class DemoApp(ctk.CTk):
     def __init__(self) -> None:
@@ -52,8 +55,8 @@ class DemoApp(ctk.CTk):
         ctk.set_default_color_theme("blue")
 
         self.title("MNIST Classifier Showcase")
-        self.geometry("1280x820")
-        self.minsize(1100, 720)
+        self.geometry("1440x900")
+        self.minsize(1280, 800)
         self.configure(fg_color=t.SURFACE_0)
 
         self._msg_q: "queue.Queue[tuple[str, object]]" = queue.Queue()
@@ -83,7 +86,7 @@ class DemoApp(ctk.CTk):
         body = ctk.CTkFrame(self, fg_color="transparent")
         body.grid(row=1, column=0, sticky="nsew", padx=t.SPACE_XL, pady=(0, t.SPACE_M))
         body.grid_columnconfigure(0, weight=0, minsize=320)
-        body.grid_columnconfigure(1, weight=1, minsize=420)
+        body.grid_columnconfigure(1, weight=1, minsize=480)
         body.grid_columnconfigure(2, weight=0, minsize=360)
         body.grid_rowconfigure(0, weight=1)
 
@@ -142,7 +145,7 @@ class DemoApp(ctk.CTk):
         pills = ctk.CTkFrame(hero, fg_color="transparent")
         pills.grid(row=1, column=0, padx=t.SPACE_XXL, pady=(t.SPACE_M, t.SPACE_XL), sticky="sw")
         StatPill(pills, icon="◆", label="Phase 1", value="5 models").grid(row=0, column=0, padx=(0, t.SPACE_S))
-        StatPill(pills, icon="◇", label="Phase 2", value="4 models").grid(row=0, column=1, padx=(0, t.SPACE_S))
+        StatPill(pills, icon="◇", label="Phase 2", value="6 models").grid(row=0, column=1, padx=(0, t.SPACE_S))
         StatPill(pills, icon="≣", label="Features", value="Flatten · PCA · HOG").grid(row=0, column=2)
 
         # Right: theme switch
@@ -173,10 +176,10 @@ class DemoApp(ctk.CTk):
         phase_card = StepCard(wrapper, step="STEP 1", icon="◧", title="Choose phase")
         phase_card.grid(row=0, column=0, sticky="ew", pady=(0, t.SPACE_M))
 
-        self.phase_var = ctk.StringVar(value=PHASE_LABELS["phase1"])
+        self.phase_var = ctk.StringVar(value="Phase 1")
         self.phase_menu = ctk.CTkSegmentedButton(
             phase_card.body,
-            values=[PHASE_LABELS["phase1"], PHASE_LABELS["phase2"]],
+            values=PHASE_SHORT_LABELS,
             variable=self.phase_var,
             command=lambda *_: self._on_phase_change(),
             selected_color=t.PRIMARY,
@@ -251,7 +254,7 @@ class DemoApp(ctk.CTk):
             font=t.heading(), text_color=t.TEXT_PRIMARY,
         ).grid(row=0, column=1, sticky="w")
 
-        self.sample_chip = Chip(stage_header, text="#0 / 200",
+        self.sample_chip = Chip(stage_header, text="#0 / 1000",
                                 fg=t.SURFACE_2, text_color=t.TEXT_SECONDARY)
         self.sample_chip.grid(row=0, column=2, sticky="e")
 
@@ -268,7 +271,7 @@ class DemoApp(ctk.CTk):
         img_card.grid_rowconfigure(0, weight=1)
 
         self.image_label = ctk.CTkLabel(img_card, text="")
-        self.image_label.grid(row=0, column=0, padx=t.SPACE_L, pady=t.SPACE_L, sticky="nsew")
+        self.image_label.grid(row=0, column=0, sticky="nsew")
 
         # Sample controls
         controls = ctk.CTkFrame(stage, fg_color="transparent")
@@ -296,7 +299,7 @@ class DemoApp(ctk.CTk):
         self.next_btn.grid(row=0, column=1, padx=(0, t.SPACE_M))
 
         self.index_entry = ctk.CTkEntry(
-            controls, placeholder_text="Jump to index (0-199)",
+            controls, placeholder_text="Jump to index (0-999)",
             height=36, corner_radius=t.RADIUS_M,
             border_color=t.BORDER_SOFT, fg_color=t.SURFACE_2,
             font=t.body(),
@@ -484,7 +487,7 @@ class DemoApp(ctk.CTk):
             child.destroy()
         self._model_cards.clear()
 
-        phase_key = PHASE_INTERNAL[self.phase_var.get()]
+        phase_key = PHASE_SHORT_TO_KEY[self.phase_var.get()]
         specs = models_for(phase_key)
         for i, (key, spec) in enumerate(specs.items()):
             card = ModelCard(
@@ -509,7 +512,7 @@ class DemoApp(ctk.CTk):
         self._selected_model_key = key
         for k, card in self._model_cards.items():
             card.set_selected(k == key)
-        phase_key = PHASE_INTERNAL[self.phase_var.get()]
+        phase_key = PHASE_SHORT_TO_KEY[self.phase_var.get()]
         spec = models_for(phase_key)[key]
         self._render_features(spec.feature_methods, spec.default_feature)
 
@@ -549,7 +552,7 @@ class DemoApp(ctk.CTk):
 
     def _load_initial_sample(self) -> None:
         try:
-            self._test_images, self._test_labels = get_test_images(n=200)
+            self._test_images, self._test_labels = get_test_images(n=1000)
         except Exception as e:
             self._log(f"Failed to load MNIST: {e}")
             self._set_status("MNIST load error", danger=True)
@@ -562,8 +565,8 @@ class DemoApp(ctk.CTk):
         idx = max(0, min(idx, len(self._test_images) - 1))
         self._current_index = idx
         img = (self._test_images[idx] * 255).astype(np.uint8)
-        pil = Image.fromarray(img, mode="L").resize((300, 300), Image.NEAREST)
-        ctk_img = ctk.CTkImage(light_image=pil, dark_image=pil, size=(300, 300))
+        pil = Image.fromarray(img, mode="L").resize((400, 400), Image.NEAREST)
+        ctk_img = ctk.CTkImage(light_image=pil, dark_image=pil, size=(400, 400))
         self.image_label.configure(image=ctk_img)
         self.image_label.image = ctk_img
         self.sample_chip.configure(text=f"Sample #{idx} / {len(self._test_images) - 1}")
@@ -579,7 +582,7 @@ class DemoApp(ctk.CTk):
         if self._test_labels is None:
             return
         true_digit = int(self._test_labels[self._current_index])
-        phase_key = PHASE_INTERNAL[self.phase_var.get()]
+        phase_key = PHASE_SHORT_TO_KEY[self.phase_var.get()]
         if phase_key == "phase1":
             text = "0" if true_digit == 0 else "Not 0"
             sub = f"actual digit: {true_digit}"
@@ -616,7 +619,7 @@ class DemoApp(ctk.CTk):
         if self._test_images is None or self._selected_model_key is None:
             return
 
-        phase_key = PHASE_INTERNAL[self.phase_var.get()]
+        phase_key = PHASE_SHORT_TO_KEY[self.phase_var.get()]
         feature = self.feature_var.get()
         idx = self._current_index
         image = self._test_images[idx].copy()
@@ -627,6 +630,8 @@ class DemoApp(ctk.CTk):
         self.predict_btn.configure(state="disabled", text="Working…")
         self._set_status("Working…", warn=True)
         self.pred_tile.set_value("…", color=t.TEXT_TERTIARY)
+        if feature == "cnn":
+            self._log("CNN embeddings: loading MobileNetV2 (first run may take ~30s)…")
 
         thread = threading.Thread(
             target=self._predict_worker,
