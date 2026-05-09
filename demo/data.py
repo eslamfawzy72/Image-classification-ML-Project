@@ -171,6 +171,39 @@ def _hog_transform(X):
     return CustomHOG().transform(X)
 
 
+@lru_cache(maxsize=1)
+def _get_cnn_extractor():
+    """Load MobileNetV2 (imagenet weights) once and cache it.
+
+    MobileNetV2 minimum input is 96×96. We resize 28×28 MNIST images to
+    96×96 before passing them through the network.
+    """
+    from keras.applications import MobileNetV2
+    from keras.applications.mobilenet_v2 import preprocess_input
+
+    model = MobileNetV2(weights="imagenet", include_top=False, pooling="avg",
+                        input_shape=(96, 96, 3))
+    return model, preprocess_input
+
+
+def _cnn_extract(extractor, preprocess_fn, X: np.ndarray) -> np.ndarray:
+    """Convert (N, 28, 28) float32 images to MobileNetV2 embeddings (N, 1280).
+
+    Resizes each image to 96×96 (MobileNetV2 minimum), converts to RGB, then
+    applies the model's expected preprocessing.
+    """
+    from PIL import Image as _Image
+
+    resized = np.stack([
+        np.array(_Image.fromarray((img * 255).astype(np.uint8), mode="L")
+                 .resize((96, 96), _Image.BILINEAR))
+        for img in X
+    ])                                                      # (N, 96, 96)
+    rgb = np.stack([resized] * 3, axis=-1).astype("float32")  # (N, 96, 96, 3)
+    rgb = preprocess_fn(rgb)
+    return extractor.predict(rgb, verbose=0)
+
+
 @lru_cache(maxsize=8)
 def _build_dataset(phase: str, feature_method: str, n_pca: int = 50, train_subset: int = 4000):
     """Build a (small) train set + matching transform for fast demo training.
@@ -225,6 +258,13 @@ def _build_dataset(phase: str, feature_method: str, n_pca: int = 50, train_subse
 
         def transform_image(img: np.ndarray) -> np.ndarray:
             return hog.transform(img[np.newaxis, ...])
+
+    elif feature_method == "cnn":
+        extractor, preprocess_fn = _get_cnn_extractor()
+        X_feat = _cnn_extract(extractor, preprocess_fn, X)
+
+        def transform_image(img: np.ndarray) -> np.ndarray:
+            return _cnn_extract(extractor, preprocess_fn, img[np.newaxis, ...])
 
     else:
         raise ValueError(f"Unknown feature_method: {feature_method}")

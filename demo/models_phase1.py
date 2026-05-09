@@ -214,12 +214,26 @@ class DecisionTree:
     def predict(self, X):
         return np.array([self._traverse(x, self.root) for x in X])
 
+    def predict_proba(self, X):
+        probs = np.array([self._traverse_proba(x, self.root) for x in X])
+        return probs
+
     def _traverse(self, x, node):
         if node.label is not None:
             return node.label
         if x[node.feature] < node.threshold:
             return self._traverse(x, node.left)
         return self._traverse(x, node.right)
+
+    def _traverse_proba(self, x, node):
+        if node.label is not None:
+            n_classes = 2
+            p = np.zeros(n_classes)
+            p[int(node.label)] = 1.0
+            return p
+        if x[node.feature] < node.threshold:
+            return self._traverse_proba(x, node.left)
+        return self._traverse_proba(x, node.right)
 
 
 class LinearSVMBinary:
