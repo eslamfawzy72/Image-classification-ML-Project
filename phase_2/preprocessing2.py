@@ -227,6 +227,37 @@ def preprocess(feature_method="flatten",cv=False, n_pca=50):
 
 def cnn(subset_limit=5000):
 
+
+    # (X_train_full, y_train_full), (X_test, y_test) = keras.datasets.mnist.load_data(path="mnist.npz")
+    
+    # # Running 60,000 images through a Deep Learning CNN on a CPU will take hours.
+    # X_train_full = X_train_full[:subset_limit]
+    # y_train_full = y_train_full[:subset_limit]
+    # split_idx=0.9*subset_limit
+
+    # X_train = X_train_full[:split_idx]
+    # y_train = y_train_full[:split_idx]
+    
+    # X_val = X_train_full[split_idx:]
+    # y_val = y_train_full[split_idx:]
+   
+    # def format_for_vgg(X):
+    #     X_padded = np.pad(X, ((0,0), (2,2), (2,2)), mode='constant', constant_values=0)
+    #     X_rgb = np.stack((X_padded,) * 3, axis=-1)
+    #     return preprocess_input(X_rgb.astype('float32'))
+
+    # X_train_prep = format_for_vgg(X_train)
+    # X_val_prep = format_for_vgg(X_val)
+    # X_test_prep = format_for_vgg(X_test)
+
+    # cnn_extractor = VGG16(weights='imagenet', include_top=False, pooling='avg', input_shape=(32, 32, 3))
+    
+    # print("Extracting CNN Features...")
+    # X_train_cnn = cnn_extractor.predict(X_train_prep)
+    # X_val_cnn = cnn_extractor.predict(X_val_prep)
+    # X_test_cnn = cnn_extractor.predict(X_test_prep)
+    
+    # return X_train_cnn, y_train, X_val_cnn, y_val, X_test_cnn, y_test
         try:
             data = np.load('mnist_vgg16_features.npz')
             
