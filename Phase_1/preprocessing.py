@@ -308,6 +308,26 @@ def custom_accuracy_score(y_true, y_pred):
     correct = np.sum(np.array(y_true) == np.array(y_pred))
     total = len(y_true)
     return correct / total if total > 0 else 0.0
+def custom_macro_f1_score(y_true, y_pred, n_classes=2):
+    
+    
+    cm = np.zeros((n_classes, n_classes), dtype=int)
+    for t, p in zip(y_true, y_pred):
+        cm[int(t), int(p)] += 1
+        
+    macro_f1 = 0
+    for i in range(n_classes):
+        tp = cm[i, i]
+        fp = np.sum(cm[:, i]) - tp
+        fn = np.sum(cm[i, :]) - tp
+        
+        precision = tp / (tp + fp + 1e-9)
+        recall = tp / (tp + fn + 1e-9)
+        f1 = 2 * (precision * recall) / (precision + recall + 1e-9)
+        
+        macro_f1 += f1
+        
+    return macro_f1 / n_classes
 
 class CustomAugmenter:
     def __init__(self, max_shift=2):
